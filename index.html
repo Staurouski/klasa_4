@@ -575,6 +575,7 @@ svg .wg-win, svg .wg-shake { transform-box: fill-box; transform-origin: 50% 100%
     <div class="lesson">
       <div class="col">
         <div class="board" id="board" aria-live="polite"><div class="empty">Tu pojawią się notatki z lekcji.</div></div>
+        <div class="row" id="knowRow"><button class="ghost" id="knowBtn" type="button">💪 Znam to! Sprawdź mnie od razu</button><span class="note">Zalicz sprawdzian na 80% i idź do nowego tematu.</span></div>
         <div class="photos" id="photoBox"></div>
         <div id="exBox"></div>
       </div>
@@ -1248,7 +1249,16 @@ const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) {
 const teacherName = () => ["Puck", "Charon", "Orus", "Fenrir"].includes(cfg.voice) ? "Pan Adam" : "Pani Ola";
 const today = () => new Date().toLocaleDateString("sv");
 
-function prog(s) { return Object.assign({ unit: 0, mastered: {}, mistakes: [], tries: {} }, (store.get("prog", {}))[s] || {}); }
+const MONTHS = ["wrzesień", "październik", "listopad", "grudzień", "styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec"];
+function monthUnit(s) {
+  const m = new Date().getMonth(); const cur = MONTHS.indexOf(["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień"][m]);
+  if (cur < 0) return 0; const us = (CUR[s] && CUR[s].units) || [];
+  const i = us.findIndex((u) => MONTHS.indexOf(u.when) >= cur); return i < 0 ? Math.max(0, us.length - 1) : i;
+}
+function prog(s) {
+  const saved = (store.get("prog", {}))[s]; const fresh = !saved || (!saved.unit && !Object.keys(saved.mastered || {}).length && !saved.unitSet);
+  const p = Object.assign({ unit: 0, mastered: {}, mistakes: [], tries: {} }, saved || {}); if (fresh) p.unit = monthUnit(s); return p;
+}
 function saveProg(s, v) { const p = store.get("prog", {}); p[s] = v; store.set("prog", p); }
 function unitOf(s) { const u = CUR[s].units; return u[Math.min(prog(s).unit, u.length - 1)]; }
 function dayState() { const d = store.get("day", {}); return d.date === today() ? d : { date: today(), done: [] }; }
@@ -1296,7 +1306,7 @@ async function loadModels(key) {
 $("sSave").onclick = async () => {
   cfg.name = $("sName").value.trim(); cfg.key = $("sKey").value.trim(); cfg.voice = $("sVoice").value; cfg.help = $("sHelp").value;
   cfg.phones = $("sPhones").value; cfg.minutes = $("sMin").value; cfg.model = $("sModel").value;
-  for (const s of SUBJ) { const p = prog(s); const v = Number($("u_" + s).value); if (v !== p.unit) { p.unit = v; saveProg(s, p); } }
+  for (const s of SUBJ) { const p = prog(s); const v = Number($("u_" + s).value); if (v !== p.unit || !p.unitSet) { p.unit = v; p.unitSet = true; saveProg(s, p); } }
   store.set("cfg", cfg);
   if (!cfg.name) { $("sMsg").textContent = "Wpisz imię ucznia."; return; }
   if (!cfg.key) { $("sMsg").textContent = "Zapisano. Bez klucza można tylko ćwiczyć bez nauczyciela."; setTimeout(goHome, 1200); return; }
@@ -1668,7 +1678,7 @@ function buildInstruction() {
   const L = lesson; const u = L.unit; const T = teacherName(); const s = META[L.subj].name; const eng = L.subj === "angielski";
   const list = (a) => (a || []).map((t) => "- " + t).join("\n");
   const prev = CUR[L.subj].units.slice(0, L.unitIdx).map((x) => x.title).join("; ");
-  const bank = L.practice.map((p) => "nr " + p.nr + ": " + exSummary(p.x)).join("\n");
+  const bank = L.practice.map((p) => "nr " + p.nr + " [poziom " + (p.x.level || 1) + "]: " + exSummary(p.x)).join("\n");
   const vocab = (u.vocab || []).map((v) => v.en + " = " + v.pl + (v.ex ? " (" + v.ex + ")" : "")).join("\n");
   return [
 `Jesteś ${T}, ciepła i cierpliwa nauczycielka. Prowadzisz NA ŻYWO, GŁOSEM indywidualną lekcję dla ucznia ${cfg.name}. Ma 10 lat, chodzi do 4 klasy szkoły podstawowej w Polsce. Jest chory i siedzi w domu, więc nadrabia materiał. Cel: żeby naprawdę zrozumiał i zapamiętał ten dział, nie żeby tylko przegadać czas.`,
@@ -1678,6 +1688,7 @@ KROKI NAUCZANIA (po kolei):\n${list(u.teach)}
 REGUŁY DO ZAPAMIĘTANIA:\n${list(u.rules)}${u.hook ? "\nHACZYK NA START: " + u.hook : ""}${(u.wiki || []).length ? "\nZDJĘCIA (pokaz_obrazek z wikipedia): " + u.wiki.map((w) => w.title).join("; ") : ""}
 TYPOWE BŁĘDY:\n${list(u.mistakes)}${vocab ? "\nSŁÓWKA:\n" + vocab : ""}`,
 `JĘZYK: mów po polsku, prostymi słowami dziesięciolatka, wyraźnie i spokojnie.${eng ? " To lekcja angielskiego: tłumacz po polsku, ćwicz po angielsku. Angielskie słowa wymawiaj starannie i często proś, żeby powtórzył na głos. Poprawiaj wymowę łagodnie." : ""}${cfg.help ? ` Jeśli uczeń wyraźnie nie rozumie polskiego słowa albo poprosi, wyjaśnij to jedno słowo krótko po ${cfg.help.replace(/i$/, "u")} i wróć do polskiego.` : ""}`,
+`POZIOM: uczeń jest bystry i mówi, że proste rzeczy zna z 3 klasy. Nie tłumacz tego, co już umie. Na początku nauki zadaj jedno TRUDNIEJSZE pytanie sprawdzające z tego działu. Jeśli odpowie dobrze, pomiń podstawy i przejdź do trudniejszych przykładów i zadań poziomu 2-3 z banku. Po 2-3 dobrych odpowiedziach z rzędu dawaj "zadanie z gwiazdką" (wyzwanie, np. zadanie tekstowe na kilka kroków, łamigłówka, "znajdź błąd"). Jeśli się myli, cofnij się o krok. Gdy aplikacja napisze, że uczeń chce od razu sprawdzian, nie przeszkadzaj.`,
 `PRZEBIEG LEKCJI (pilnuje go aplikacja):
 1. Start: przywitaj się jednym zdaniem i zacznij od HACZYKA (ciekawostka lub mini-historia z pola HACZYK poniżej), żeby zaciekawić. Potem powiedz, czego się dziś nauczy. Jeśli aplikacja zapowie rozgrzewkę, poczekaj na wyniki zadań rozgrzewkowych i krótko je skomentuj.
 2. Nauka to ROZMOWA, nie wykład. Każdy krok z KROKÓW NAUCZANIA rób w pętli:
@@ -1855,8 +1866,9 @@ function customEx(a) {
 /* ---------- lesson flow ---------- */
 let lesson = null, timer = null;
 function pickTest(exs) {
-  const cand = exs.map((x, i) => ({ x, i })).filter((e) => e.x.type !== "say" && (e.x.level || 1) <= 2);
-  const pool = cand.length >= 4 ? cand : exs.map((x, i) => ({ x, i })).filter((e) => e.x.type !== "say");
+  const all = exs.map((x, i) => ({ x, i })).filter((e) => e.x.type !== "say");
+  const hard = all.filter((e) => (e.x.level || 1) >= 2);
+  const pool = hard.length >= 5 ? hard : all;
   const types = {}; const picked = [];
   for (const e of shuffle(pool)) { if (picked.length >= 5) break; if ((types[e.x.type] || 0) >= 2) continue; types[e.x.type] = (types[e.x.type] || 0) + 1; picked.push(e); }
   for (const e of shuffle(pool)) { if (picked.length >= Math.min(5, pool.length)) break; if (!picked.includes(e)) picked.push(e); }
@@ -1878,7 +1890,7 @@ async function startLesson(s) {
   lesson.instruction = buildInstruction();
   $("lSubj").textContent = META[s].name; $("lSubj").style.setProperty("--c", META[s].c); $("lUnit").textContent = u.title + (lesson.again ? " (powtórka)" : "");
   $("lStars").textContent = "0 ★"; $("lClock").textContent = "0:00"; $("log").textContent = ""; clearExercise(); $("soloBtn").hidden = true;
-  renderIntro(u); lesson.xp = 0; lesson.combo = 0;
+  renderIntro(u); lesson.xp = 0; lesson.combo = 0; $("knowRow").hidden = false;
   $("face").textContent = teacherName().split(" ")[1][0]; $("vLesson").classList.remove("solo"); renderSteps(); show("vLesson");
   clearInterval(timer); timer = setInterval(tick, 1000);
   if (lesson.solo) { startSolo(); return; }
@@ -1925,8 +1937,11 @@ function runPractice(x, label) {
       (x.type === "say" ? " Uczeń powiedział to na głos. Oceń wymowę, jeśli ją słyszałaś." : r.ok ? " Pochwal konkretnie i idź dalej." : " Wyjaśnij błąd prościej, pokaż na tablicy, potem daj podobne zadanie."));
   });
 }
+$("knowBtn").onclick = () => { if (!lesson || lesson.phase === "test" || lesson.phase === "summary") return; lesson.testOut = true;
+  if (!lesson.solo) say("[APLIKACJA] Uczeń mówi, że zna ten temat i od razu pisze sprawdzian. Powiedz krótko, że super, i nie podpowiadaj."); clearExercise(); startTest(); };
 function startTest() {
   if (!lesson || lesson.phase === "test" || lesson.phase === "summary") return;
+  $("knowRow").hidden = true;
   setPhase("test"); lesson.testRes = []; renderBoard("Sprawdzian", [{ rodzaj: "tekst", tekst: "Rozwiąż " + lesson.test.length + " zadań. Bez podpowiedzi. Dasz radę!" }]);
   runTestItem(0);
 }
@@ -1993,7 +2008,8 @@ function startSolo() {
   lesson.solo = true; $("soloBtn").hidden = true; $("vLesson").classList.add("solo"); try { conn.ws && conn.ws.close(1000, "solo"); } catch {} stopAudio();
   setStatus("Ćwiczenia bez nauczyciela", "Rozwiązuj zadania po kolei"); renderSteps();
   const u = lesson.unit;
-  const practice = lesson.practice.filter((p) => p.x.type !== "say").sort((a, b) => (a.x.level || 1) - (b.x.level || 1)).slice(0, 7);
+  const pr = lesson.practice.filter((p) => p.x.type !== "say");
+  const practice = pr.filter((p) => (p.x.level || 1) >= 2).slice(0, 5).concat(pr.filter((p) => (p.x.level || 1) === 1).slice(0, 2)).sort((a, b) => (a.x.level || 1) - (b.x.level || 1));
   const queue = lesson.warm.map((x) => ["warmup", x]).concat(practice.map((p) => ["practice", p.x]));
   const step = (k) => {
     if (!lesson) return;
