@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zeszyt z Panią Olą</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;800&display=swap">
+<style>
+/* Layout: squared school notebook ("zeszyt w kratkę") as the board, teacher panel beside it (stacked on phones). */
+:root {
+  --paper: #fbfcf8;
+  --grid: #d6e2ee;
+  --margin: #e8838a;
+  --ink: #1d3f9e;
+  --pencil: #3b4250;
+  --muted: #6b7384;
+  --desk: #eef1ec;
+  --card: #ffffff;
+  --line: #d9ded6;
+  --red: #c8333f;
+  --green: #22834e;
+  --gold: #e0a100;
+  --pl: #c8333f; --mat: #1d5fd0; --ang: #6a3fb5; --his: #a0661a;
+  --hand: "Caveat", "Comic Sans MS", cursive;
+  --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sq: 22px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #172131; --grid: #24324a; --margin: #8a3a44; --ink: #9fc0ff; --pencil: #d5dbe6; --muted: #98a2b6;
+  --desk: #0f1520; --card: #1b2433; --line: #2c3850; --red: #ff7b84; --green: #5fd39a; --gold: #ffc940;
+  --pl: #ff7b84; --mat: #79a8ff; --ang: #b896ff; --his: #e0a85a; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #172131; --grid: #24324a; --margin: #8a3a44; --ink: #9fc0ff; --pencil: #d5dbe6; --muted: #98a2b6;
+  --desk: #0f1520; --card: #1b2433; --line: #2c3850; --red: #ff7b84; --green: #5fd39a; --gold: #ffc940;
+  --pl: #ff7b84; --mat: #79a8ff; --ang: #b896ff; --his: #e0a85a; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--desk); color: var(--pencil); font: 16px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px)); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+[hidden] { display: none !important; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+.wrap { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+/* top bar */
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { font: 700 32px/1 var(--hand); color: var(--ink); }
+.bar .sp { flex: 1; }
+.ghost { background: none; border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; color: var(--muted); }
+.ghost:hover { color: var(--pencil); border-color: var(--muted); }
+.btn { background: var(--ink); color: var(--paper); border: 0; border-radius: 12px; padding: 12px 20px; font-weight: 800; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.red { background: var(--red); }
+
+/* panels */
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+.panel h2 { font-size: 20px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-weight: 700; font-size: 14px; }
+.field small { color: var(--muted); }
+.field input, .field select, .field textarea { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--paper); min-width: 0; }
+.form { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.note { color: var(--muted); font-size: 14px; }
+.err { color: var(--red); font-weight: 700; }
+
+/* subjects */
+.subjects { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.subj { text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden; }
+.subj::after { content: ""; position: absolute; inset: auto 0 0 0; height: 6px; background: var(--c); }
+.subj b { font: 700 30px/1 var(--hand); color: var(--c); }
+.subj span { color: var(--muted); font-size: 14px; }
+.subj[aria-pressed="true"] { border-color: var(--c); box-shadow: 0 0 0 2px var(--c) inset; }
+.topics { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 7px 14px; font-size: 15px; }
+.topic[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.topic .now { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--green); margin-left: 6px; }
+.topic[aria-pressed="true"] .now { color: var(--paper); }
+.thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+
+/* lesson layout */
+.lesson { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 820px) { .lesson { grid-template-columns: minmax(0, 1fr); } }
+.lhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.lhead .tag { font: 700 26px/1 var(--hand); color: var(--c, var(--ink)); }
+.lhead .t { color: var(--muted); }
+.stars { font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+.clock { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* notebook board */
+.board { position: relative; min-height: 420px; border-radius: 6px; padding: calc(var(--sq) * 1) calc(var(--sq) * 1) calc(var(--sq) * 2) calc(var(--sq) * 3);
+  background-color: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: var(--sq) var(--sq); box-shadow: 0 1px 0 var(--line), 0 10px 30px -18px rgba(0,0,0,.35);
+  color: var(--ink); font-family: var(--hand); font-size: 25px; line-height: calc(var(--sq) * 1.5); overflow-wrap: anywhere; }
+.board::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(var(--sq) * 2); width: 2px; background: var(--margin); opacity: .8; }
+.board h3 { font-size: 34px; font-weight: 700; line-height: calc(var(--sq) * 2); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.board .blk { margin-top: calc(var(--sq) * .5); }
+.board .big { font-size: 44px; line-height: calc(var(--sq) * 3); text-align: center; font-weight: 700; }
+.board ul { margin: 0; padding-left: 1.1em; }
+.board .tip { color: var(--green); }
+.board .tip::before { content: "Wskazówka: "; font-weight: 700; }
+.board .task { color: var(--red); }
+.board .task::before { content: "Zadanie: "; font-weight: 700; }
+.calc { display: inline-flex; flex-direction: column; align-items: flex-end; padding-left: var(--sq); }
+.calc .ln { display: flex; }
+.calc .ln span { width: var(--sq); height: calc(var(--sq) * 1.5); display: inline-flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; }
+.calc .ln.rule { height: 3px; width: 100%; background: var(--ink); border-radius: 2px; margin: 2px 0; }
+.tbl { overflow-x: auto; }
+.tbl table { border-collapse: collapse; font-size: 23px; }
+.tbl td { border: 2px solid var(--ink); padding: 0 10px; }
+.tbl tr:first-child td { font-weight: 700; }
+.tl { display: flex; flex-direction: column; border-left: 3px solid var(--ink); margin-left: 8px; padding-left: 14px; }
+.tl div { position: relative; }
+.tl div::before { content: ""; position: absolute; left: -22px; top: 13px; width: 11px; height: 11px; border-radius: 50%; background: var(--ink); }
+.tl b { color: var(--red); margin-right: 8px; }
+.word { display: inline-flex; flex-direction: column; border: 2px dashed var(--ink); border-radius: 10px; padding: 4px 16px; }
+.word b { font-size: 36px; }
+.word i { color: var(--pencil); font-style: normal; }
+.word small { color: var(--muted); font-size: 21px; }
+.board .empty { color: var(--muted); }
+
+/* teacher panel */
+.side { display: flex; flex-direction: column; gap: 12px; }
+.teacher { display: flex; gap: 14px; align-items: center; }
+.face { width: 64px; height: 64px; border-radius: 50%; background: var(--ink); position: relative; flex: none; display: grid; place-items: center; color: var(--paper); font: 700 30px/1 var(--hand); }
+.face::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--ink); opacity: 0; transform: scale(var(--lvl, 1)); transition: transform .08s, opacity .2s; }
+.face.talk::after { opacity: .5; }
+.status { font-weight: 700; }
+.status small { display: block; font-weight: 400; color: var(--muted); }
+.log { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
+.msg { padding: 8px 12px; border-radius: 12px; max-width: 92%; font-size: 15px; }
+.msg.t { background: var(--paper); border: 1px solid var(--line); align-self: flex-start; }
+.msg.k { background: var(--ink); color: var(--paper); align-self: flex-end; }
+.msg.s { align-self: center; color: var(--muted); font-size: 13px; background: none; }
+.choices { display: flex; flex-direction: column; gap: 8px; }
+.choices .q { font-weight: 800; }
+.choice { text-align: left; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 17px; }
+.choice:hover { background: var(--ink); color: var(--paper); }
+.say { display: flex; gap: 8px; }
+.say input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); }
+.mic { width: 100%; padding: 16px; border-radius: 14px; border: 0; font-weight: 800; font-size: 18px; background: var(--green); color: var(--paper); display: flex; align-items: center; justify-content: center; gap: 10px; }
+.mic.off { background: var(--muted); }
+.mic .meter { width: 60px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.3); overflow: hidden; }
+.mic .meter i { display: block; height: 100%; width: 0; background: var(--paper); }
+.quick { display: flex; gap: 8px; flex-wrap: wrap; }
+.quick button { flex: 1; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 8px; font-weight: 700; font-size: 14px; }
+
+/* report */
+.rep { display: flex; flex-direction: column; gap: 12px; }
+.rep article { border-left: 4px solid var(--c, var(--ink)); padding: 4px 14px; }
+.rep h3 { font-size: 16px; }
+.rep p { margin: 4px 0; }
+.done { text-align: center; padding: 30px; }
+.done .big { font: 700 48px/1.1 var(--hand); color: var(--gold); }
+@media (prefers-reduced-motion: reduce) { .face::after { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <span class="brand">Zeszyt z Panią Olą</span>
+    <span class="sp"></span>
+    <button class="ghost" id="navHome" type="button">Lekcje</button>
+    <button class="ghost" id="navReport" type="button">Dla rodzica</button>
+    <button class="ghost" id="navSettings" type="button">Ustawienia</button>
+  </header>
+
+  <!-- SETTINGS -->
+  <section id="vSettings" class="panel" hidden>
+    <h2>Ustawienia (dla rodzica)</h2>
+    <p class="note">Klucz zostaje tylko w tej przeglądarce, na tym urządzeniu. Nigdzie nie jest wysyłany poza Google.</p>
+    <div class="form">
+      <div class="field"><label for="sName">Imię ucznia</label><input id="sName" autocomplete="off" placeholder="np. Mateusz"></div>
+      <div class="field"><label for="sKey">Klucz Gemini API</label><input id="sKey" type="password" autocomplete="off" placeholder="AIza..."><small>Z Google AI Studio.</small></div>
+      <div class="field"><label for="sVoice">Głos nauczyciela</label>
+        <select id="sVoice">
+          <option value="Kore">Pani Ola (Kore)</option>
+          <option value="Aoede">Pani Ola (Aoede)</option>
+          <option value="Leda">Pani Ola (Leda)</option>
+          <option value="Puck">Pan Adam (Puck)</option>
+          <option value="Charon">Pan Adam (Charon)</option>
+          <option value="Orus">Pan Adam (Orus)</option>
+        </select></div>
+      <div class="field"><label for="sHelp">Język pomocniczy</label>
+        <select id="sHelp">
+          <option value="">Tylko polski</option>
+          <option value="rosyjski">Rosyjski, gdy nie rozumie</option>
+          <option value="ukraiński">Ukraiński, gdy nie rozumie</option>
+          <option value="angielski">Angielski, gdy nie rozumie</option>
+        </select></div>
+      <div class="field"><label for="sPhones">Dźwięk</label>
+        <select id="sPhones">
+          <option value="0">Głośnik (mikrofon czeka, aż nauczyciel skończy)</option>
+          <option value="1">Słuchawki (można przerywać nauczycielowi)</option>
+        </select></div>
+      <div class="field"><label for="sBooks">Podręczniki (opcjonalnie)</label><input id="sBooks" autocomplete="off" placeholder="np. Matematyka z kluczem 4, Nowe słowa na start 4"></div>
+      <div class="field"><label for="sModel">Model</label>
+        <select id="sModel"><option value="">wybierz automatycznie</option></select>
+        <small id="sModelNote">Lista pojawi się po sprawdzeniu klucza.</small></div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn" id="sSave" type="button">Zapisz i sprawdź klucz</button>
+      <span id="sMsg" class="note"></span>
+    </div>
+  </section>
+
+  <!-- HOME -->
+  <section id="vHome" hidden>
+    <div class="wrap">
+      <h1 id="hello" style="font:700 40px/1.1 var(--hand);color:var(--ink)">Cześć!</h1>
+      <div class="subjects" id="subjects"></div>
+      <div class="panel" id="topicPanel" hidden>
+        <div class="wrap" style="gap:14px">
+          <h2 id="topicTitle">Wybierz temat</h2>
+          <div class="topics" id="topics"></div>
+          <div class="field"><label for="ownTopic">Albo wpisz temat z dziennika / z lekcji</label><input id="ownTopic" autocomplete="off" placeholder="np. Mnożenie pisemne przez liczby dwucyfrowe"></div>
+          <div class="field"><label for="photos">Zdjęcie strony z podręcznika lub zeszytu (do 3, opcjonalnie)</label><input id="photos" type="file" accept="image/*" multiple><div class="thumbs" id="thumbs"></div></div>
+          <div class="field" style="max-width:280px"><label for="len">Długość lekcji</label>
+            <select id="len"><option value="15">15 minut</option><option value="25" selected>25 minut</option><option value="35">35 minut</option></select></div>
+          <div class="row"><button class="btn" id="startBtn" type="button" disabled>Zaczynamy lekcję</button><span id="startMsg" class="note"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LESSON -->
+  <section id="vLesson" hidden>
+    <div class="wrap" style="gap:12px">
+      <div class="lhead"><span class="tag" id="lSubj"></span><span class="t" id="lTopic"></span><span class="sp" style="flex:1"></span>
+        <span class="stars" id="lStars" aria-label="gwiazdki">0 ★</span><span class="clock" id="lClock">0:00</span>
+        <button class="ghost" id="endBtn" type="button">Zakończ lekcję</button></div>
+      <div class="lesson">
+        <div class="board" id="board" aria-live="polite"><div class="empty">Tu pojawią się notatki z lekcji.</div></div>
+        <div class="side">
+          <div class="panel teacher"><div class="face" id="face">O</div><div class="status" id="status">Łączę...<small id="statusSub"></small></div></div>
+          <div class="panel choices" id="choices" hidden></div>
+          <button class="mic" id="micBtn" type="button"><span id="micLabel">Mikrofon włączony</span><span class="meter"><i id="meter"></i></span></button>
+          <div class="quick">
+            <button type="button" data-q="Nie rozumiem. Wytłumacz to prościej, proszę.">Nie rozumiem</button>
+            <button type="button" data-q="Poproszę o podpowiedź.">Podpowiedź</button>
+            <button type="button" data-q="Powtórz to jeszcze raz, wolniej.">Powtórz wolniej</button>
+          </div>
+          <form class="say" id="sayForm"><input id="sayInput" autocomplete="off" placeholder="Albo napisz odpowiedź..."><button class="btn" type="submit">Wyślij</button></form>
+          <div class="panel log" id="log"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DONE -->
+  <section id="vDone" class="panel done" hidden>
+    <div class="big" id="doneStars"></div>
+    <p id="doneText"></p>
+    <button class="btn" id="doneHome" type="button">Wróć do lekcji</button>
+  </section>
+
+  <!-- REPORT -->
+  <section id="vReport" class="panel" hidden>
+    <div class="row"><h2 style="flex:1">Postępy (na tym urządzeniu)</h2><button class="ghost" id="copyRep" type="button">Kopiuj raport</button></div>
+    <div class="rep" id="rep" style="margin-top:12px"></div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ---------- curriculum (Polish core curriculum, klasa 4; "now" = usually Sept-Nov) ---------- */
+const SUBJECTS = {
+  polski: { name: "Język polski", c: "var(--pl)", sub: "części mowy, ortografia, lektury", topics: [
+    ["Głoska, litera, sylaba i alfabet", 1], ["Rzeczownik: liczba i rodzaj", 1], ["Odmiana rzeczownika przez przypadki", 1],
+    ["Czasownik: osoba, liczba, czas", 1], ["Przymiotnik i jego stopniowanie", 0], ["Ortografia: ó i u", 1], ["Ortografia: rz i ż", 1],
+    ["Ortografia: ch i h", 0], ["Wielka i mała litera", 1], ["Zdanie i równoważnik zdania", 0], ["Zapis dialogu", 1],
+    ["Opowiadanie: plan wydarzeń", 0], ["Opis przedmiotu", 0], ["List prywatny i zaproszenie", 0],
+    ["Lektura: Akademia pana Kleksa", 1], ["Lektura: Opowieści z Narnii. Lew, czarownica i stara szafa", 0], ["Lektura: Mikołajek", 0] ] },
+  matematyka: { name: "Matematyka", c: "var(--mat)", sub: "liczby, działania, zadania", topics: [
+    ["System dziesiątkowy i liczby wielocyfrowe", 1], ["Oś liczbowa", 1], ["Dodawanie i odejmowanie w pamięci", 1],
+    ["Mnożenie i dzielenie w pamięci", 1], ["Dzielenie z resztą", 1], ["O ile więcej, ile razy więcej", 1],
+    ["Kolejność wykonywania działań", 1], ["Kwadrat i sześcian liczby", 1], ["Dodawanie i odejmowanie pisemne", 1],
+    ["Mnożenie pisemne", 0], ["Dzielenie pisemne", 0], ["Cyfry rzymskie", 1], ["Kalendarz i zegar", 0],
+    ["Zadania tekstowe", 1], ["Proste, odcinki, kąty", 0], ["Jednostki długości i masy", 0], ["Ułamki zwykłe", 0] ] },
+  angielski: { name: "Język angielski", c: "var(--ang)", sub: "słówka, gramatyka, mówienie", topics: [
+    ["Introductions and numbers 1-100", 1], ["School things and school subjects", 1], ["Verb to be", 1],
+    ["Family and have got", 1], ["There is / there are: my house", 1], ["Present Simple: daily routine", 1],
+    ["Telling the time", 0], ["Days of the week and months", 1], ["Can / can't: abilities", 0], ["Food: some / any", 0],
+    ["Present Continuous", 0], ["Clothes and weather", 0] ] },
+  historia: { name: "Historia", c: "var(--his)", sub: "czas, źródła, postacie", topics: [
+    ["Historia jako nauka: źródła historyczne", 1], ["Czas w historii: wiek, cyfry rzymskie, oś czasu", 1],
+    ["p.n.e. i n.e.", 1], ["Ja i moja rodzina: drzewo genealogiczne", 1], ["Mała ojczyzna i region", 1],
+    ["Symbole narodowe: godło, flaga, hymn", 1], ["11 listopada: Narodowe Święto Niepodległości", 1],
+    ["Mapa i plan: jak czytać mapę", 1], ["Legendy o początkach Polski", 0], ["Mieszko I i chrzest Polski", 0],
+    ["Bolesław Chrobry i zjazd gnieźnieński", 0], ["Kazimierz Wielki", 0], ["Jadwiga, Jagiełło i Grunwald", 0], ["Mikołaj Kopernik", 0] ] }
+};
+
+/* ---------- storage ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("klasa4." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("klasa4." + k, JSON.stringify(v)); } catch {} }
+};
+let cfg = Object.assign({ name: "", key: "", voice: "Kore", help: "", phones: "0", books: "", model: "", models: [] }, store.get("cfg", {}));
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const teacherName = () => ["Puck", "Charon", "Orus", "Fenrir"].includes(cfg.voice) ? "Pan Adam" : "Pani Ola";
+
+/* ---------- views ---------- */
+const VIEWS = ["vSettings", "vHome", "vLesson", "vDone", "vReport"];
+function show(v) { VIEWS.forEach((x) => ($(x).hidden = x !== v)); window.scrollTo(0, 0); }
+$("navHome").onclick = () => { if (!lesson) goHome(); };
+$("navReport").onclick = () => { if (!lesson) { renderReport(); show("vReport"); } };
+$("navSettings").onclick = () => { if (!lesson) openSettings(); };
+
+/* ---------- settings ---------- */
+function openSettings() {
+  $("sName").value = cfg.name; $("sKey").value = cfg.key; $("sVoice").value = cfg.voice; $("sHelp").value = cfg.help;
+  $("sPhones").value = cfg.phones; $("sBooks").value = cfg.books; fillModels(); show("vSettings");
+}
+function fillModels() {
+  const s = $("sModel"); s.textContent = ""; s.append(new Option("wybierz automatycznie", ""));
+  (cfg.models || []).forEach((m) => s.append(new Option(m, m)));
+  s.value = cfg.model && cfg.models.includes(cfg.model) ? cfg.model : "";
+  $("sModelNote").textContent = cfg.models.length ? "Znalezione modele głosowe: " + cfg.models.length : "Lista pojawi się po sprawdzeniu klucza.";
+}
+function pickModel(list) {
+  const ok = list.filter((m) => /live|native-audio/.test(m) && !/transcribe|translate|robotics|tts|thinking|exp/.test(m));
+  const ver = (m) => { const v = /gemini-(\d+)\.(\d+)/.exec(m); return v ? Number(v[1]) * 100 + Number(v[2]) : 0; };
+  const score = (m) => ver(m) * 10 + (/preview/.test(m) ? 0 : 1);
+  return (ok.length ? ok : list).slice().sort((a, b) => score(b) - score(a) || b.localeCompare(a, "en", { numeric: true }))[0] || "";
+}
+async function loadModels(key) {
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + encodeURIComponent(key));
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
+  return (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("bidiGenerateContent")).map((m) => m.name.replace(/^models\//, ""));
+}
+$("sSave").onclick = async () => {
+  cfg.name = $("sName").value.trim(); cfg.key = $("sKey").value.trim(); cfg.voice = $("sVoice").value; cfg.help = $("sHelp").value;
+  cfg.phones = $("sPhones").value; cfg.books = $("sBooks").value.trim(); cfg.model = $("sModel").value;
+  store.set("cfg", cfg);
+  if (!cfg.key) { $("sMsg").textContent = "Wpisz klucz Gemini API."; return; }
+  $("sMsg").textContent = "Sprawdzam klucz...";
+  try {
+    cfg.models = await loadModels(cfg.key); store.set("cfg", cfg); fillModels();
+    if (!cfg.models.length) { $("sMsg").textContent = "Klucz działa, ale nie widzę modelu do rozmowy głosowej (Live API)."; return; }
+    $("sMsg").textContent = "Gotowe. Model: " + (cfg.model || pickModel(cfg.models));
+    setTimeout(goHome, 900);
+  } catch (e) { $("sMsg").innerHTML = ""; $("sMsg").append(el("span", "err", "Klucz nie działa: " + e.message)); }
+};
+
+/* ---------- home ---------- */
+let pick = { subj: null, topic: "", photos: [] };
+function goHome() {
+  if (!cfg.key || !cfg.name) return openSettings();
+  $("hello").textContent = "Cześć, " + cfg.name + "! Czego się dziś uczymy?";
+  const box = $("subjects"); box.textContent = "";
+  for (const [id, s] of Object.entries(SUBJECTS)) {
+    const b = el("button", "subj"); b.type = "button"; b.style.setProperty("--c", s.c);
+    b.setAttribute("aria-pressed", String(pick.subj === id));
+    b.append(el("b", null, s.name), el("span", null, s.sub));
+    b.onclick = () => { pick.subj = id; pick.topic = ""; goHome(); renderTopics(); };
+    box.append(b);
+  }
+  $("topicPanel").hidden = !pick.subj; if (pick.subj) renderTopics();
+  show("vHome");
+}
+function renderTopics() {
+  const s = SUBJECTS[pick.subj]; $("topicTitle").textContent = s.name + ": wybierz temat";
+  const box = $("topics"); box.textContent = "";
+  s.topics.forEach(([t, now]) => {
+    const b = el("button", "topic", t); b.type = "button"; b.setAttribute("aria-pressed", String(pick.topic === t && !$("ownTopic").value.trim()));
+    if (now) b.append(el("span", "now", "jesień"));
+    b.onclick = () => { pick.topic = t; $("ownTopic").value = ""; renderTopics(); };
+    box.append(b);
+  });
+  updateStart();
+}
+$("ownTopic").oninput = () => { pick.topic = $("ownTopic").value.trim(); renderTopics(); };
+function updateStart() { $("startBtn").disabled = !(pick.subj && (pick.topic || pick.photos.length)); }
+$("photos").onchange = async (ev) => {
+  pick.photos = []; $("thumbs").textContent = "";
+  for (const f of Array.from(ev.target.files).slice(0, 3)) {
+    try { const d = await shrink(f); pick.photos.push(d); const i = new Image(); i.src = "data:image/jpeg;base64," + d; i.alt = "strona z podręcznika"; $("thumbs").append(i); } catch {}
+  }
+  updateStart();
+};
+function shrink(file) {
+  return new Promise((res, rej) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, 1400 / Math.max(img.width, img.height)); const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", 0.85).split(",")[1]); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); }; img.src = url;
+  });
+}
+
+/* ---------- board rendering ---------- */
+function renderBoard(title, blocks) {
+  const b = $("board"); b.textContent = "";
+  if (title) b.append(el("h3", null, title));
+  for (const k of blocks || []) {
+    const kind = String(k.rodzaj || "tekst").toLowerCase(); let n;
+    const items = Array.isArray(k.elementy) ? k.elementy.map(String) : [];
+    if (kind === "naglowek") n = el("h3", null, k.tekst || "");
+    else if (kind === "lista") { n = el("ul"); items.forEach((t) => n.append(el("li", null, t))); }
+    else if (kind === "wzor") n = el("div", "big", k.tekst || "");
+    else if (kind === "dzialanie") {
+      n = el("div", "calc");
+      const lines = items.length ? items : String(k.tekst || "").split("\n");
+      lines.forEach((ln) => {
+        if (/^\s*[-_=]{2,}\s*$/.test(ln)) { n.append(el("div", "ln rule")); return; }
+        const row = el("div", "ln"); for (const ch of ln.replace(/\s+$/, "")) row.append(el("span", null, ch === " " ? " " : ch)); n.append(row);
+      });
+    }
+    else if (kind === "tabela") {
+      n = el("div", "tbl"); const t = el("table"); n.append(t);
+      items.forEach((r) => { const tr = el("tr"); r.split("|").forEach((c) => tr.append(el("td", null, c.trim()))); t.append(tr); });
+    }
+    else if (kind === "os_czasu") {
+      n = el("div", "tl");
+      (k.wydarzenia || []).forEach((w) => { const d = el("div"); d.append(el("b", null, String(w.rok || "")), document.createTextNode(String(w.opis || ""))); n.append(d); });
+    }
+    else if (kind === "slowko") {
+      n = el("div", "word"); n.append(el("b", null, k.slowo || k.tekst || ""));
+      if (k.tlumaczenie) n.append(el("i", null, k.tlumaczenie)); if (k.przyklad) n.append(el("small", null, k.przyklad));
+    }
+    else if (kind === "wskazowka") n = el("div", "tip", k.tekst || "");
+    else if (kind === "zadanie") n = el("div", "task", k.tekst || "");
+    else n = el("div", null, k.tekst || items.join(", "));
+    n.classList.add("blk"); b.append(n);
+  }
+}
+function renderChoices(q, answers) {
+  const box = $("choices"); box.textContent = "";
+  if (!answers || !answers.length) { box.hidden = true; return; }
+  box.append(el("div", "q", q || ""));
+  answers.forEach((a) => { const b = el("button", "choice", String(a)); b.type = "button";
+    b.onclick = () => { box.hidden = true; sendText("Wybieram: " + a, a); }; box.append(b); });
+  box.hidden = false;
+}
+function logMsg(cls, text) {
+  const log = $("log"); let m = log.lastElementChild;
+  if (cls !== "s" && m && m.dataset.live === cls) m.textContent += text;
+  else { m = el("div", "msg " + cls, text); if (cls !== "s") m.dataset.live = cls; log.append(m); }
+  log.scrollTop = log.scrollHeight;
+  if (lesson && cls !== "s") { const last = lesson.transcript[lesson.transcript.length - 1];
+    if (last && last[0] === cls) last[1] += text; else lesson.transcript.push([cls, text]); }
+}
+function setStatus(main, sub) { $("status").firstChild.nodeValue = main; $("statusSub").textContent = sub || ""; }
+
+/* ---------- system instruction ---------- */
+function buildInstruction(subj, topic, hasPhotos) {
+  const s = SUBJECTS[subj]; const T = teacherName();
+  const list = s.topics.map((t) => t[0]).join("; ");
+  const eng = subj === "angielski";
+  return [
+`Jesteś ${T}, ciepłą, cierpliwą nauczycielką/nauczycielem i prowadzisz NA ŻYWO, GŁOSEM, indywidualną lekcję dla ucznia o imieniu ${cfg.name}. Ma 10 lat, chodzi do 4 klasy szkoły podstawowej w Polsce. Jest chory i siedzi w domu, więc nadrabia materiał, żeby nie zostać w tyle za klasą.`,
+`Przedmiot: ${s.name}. Temat lekcji: ${topic || "według zdjęć z podręcznika"}. Trzymaj się podstawy programowej dla klasy 4. Inne tematy tego przedmiotu w klasie 4: ${list}.${cfg.books ? " Podręczniki ucznia: " + cfg.books + "." : ""}${hasPhotos ? " Rodzic przesłał zdjęcia strony z podręcznika lub zeszytu: oprzyj lekcję na tym, co na nich jest." : ""}`,
+`JĘZYK: mów po polsku, prostymi słowami dziesięciolatka, wyraźnie i niezbyt szybko.${eng ? " To lekcja angielskiego: tłumacz po polsku, a ćwicz po angielsku. Angielskie słowa i zdania wymawiaj starannie z angielską wymową i często proś ucznia, żeby je powtórzył na głos. Poprawiaj wymowę łagodnie." : ""}${cfg.help ? ` Jeśli uczeń wyraźnie nie rozumie jakiegoś polskiego słowa albo poprosi, możesz krótko wyjaśnić to jedno słowo po ${cfg.help.replace(/i$/, "u")}, a potem wróć do polskiego.` : ""}`,
+`METODA (bardzo ważne):
+1. Na start: krótko się przywitaj (jedno zdanie), zadaj JEDNO pytanie rozgrzewkowe, żeby sprawdzić, co uczeń już wie. Potem pokaż na tablicy plan lekcji (3 do 5 małych kroków).
+2. Każdy krok: wyjaśnij JEDNĄ rzecz w 2-3 krótkich zdaniach, z przykładem z życia dziecka (piłka, gry, zwierzęta, jedzenie). Od razu pokaż to na tablicy (funkcja pokaz_tablice). Potem zadaj jedno pytanie sprawdzające i CZEKAJ na odpowiedź.
+3. Uczeń ma mówić więcej niż ty. Jedna twoja wypowiedź to najwyżej około 40 słów. Nigdy nie rób wykładu.
+4. Dobra odpowiedź: pochwal konkretnie (co dokładnie zrobił dobrze), czasem daj gwiazdkę (daj_gwiazdke), potem idź dalej albo daj trochę trudniejsze zadanie.
+5. Zła odpowiedź: nie podawaj od razu wyniku. Daj podpowiedź albo mniejszy krok i zapytaj jeszcze raz. Po dwóch nieudanych próbach pokaż rozwiązanie krok po kroku na tablicy i daj podobne zadanie do samodzielnego zrobienia.
+6. Zmieniaj rodzaj pytań: czasem zadaj_pytanie z 3-4 odpowiedziami do kliknięcia, czasem pytanie otwarte, czasem "dlaczego?", czasem poproś, żeby sam wymyślił przykład.
+7. Co 3-4 kroki krótkie pytanie powtórkowe z wcześniejszej części.
+8. Gdy plan jest zrobiony albo aplikacja napisze, że kończy się czas: mini-quiz z 3 pytań (po jednym), potem pożegnaj się ciepło i wywołaj zakoncz_lekcje.
+9. Jeśli uczeń zbacza z tematu albo jest zmęczony: odpowiedz krótko i życzliwie, zaproponuj chwilę przerwy, wróć do tematu.
+10. Stosuj polskie szkolne zwyczaje: działania pisemne w polskim zapisie, polskie nazwy (rzeczownik, przypadki: mianownik, dopełniacz...), wieki cyframi rzymskimi, p.n.e. i n.e. Fakty muszą być prawdziwe. Jeśli czegoś nie jesteś pewna, nie zmyślaj.
+11. Odpowiedzi ucznia przychodzą z rozpoznawania mowy i mogą mieć błędy. Bądź wyrozumiała. Gdy nie zrozumiesz, poproś, żeby powtórzył.`,
+`TABLICA: uczeń widzi ekran jak stronę zeszytu w kratkę. Używaj pokaz_tablice często: przy każdym nowym pojęciu, przykładzie i zadaniu. Pisz na tablicy krótko, jak nauczyciel kredą. Rodzaje bloków: naglowek, tekst, lista (elementy), wzor (duży napis na środku, np. 3² = 9), dzialanie (działanie pisemne: elementy to wiersze wyrównane do prawej, wiersz "----" to kreska, np. ["  345", "+ 278", "-----", "  623"]), tabela (elementy to wiersze z komórkami rozdzielonymi znakiem |), os_czasu (wydarzenia z polami rok i opis), slowko (slowo, tlumaczenie, przyklad), wskazowka, zadanie. Nie czytaj na głos całej tablicy, tylko o niej mów.`,
+`Wiadomości w nawiasach kwadratowych zaczynające się od [APLIKACJA] pochodzą z aplikacji, nie od ucznia. Wykonaj je.`
+  ].join("\n\n");
+}
+const TOOLS = [{ functionDeclarations: [
+  { name: "pokaz_tablice", description: "Pokazuje treść na tablicy (stronie zeszytu) ucznia, zastępując poprzednią treść.",
+    parameters: { type: "OBJECT", properties: {
+      tytul: { type: "STRING", description: "Krótki tytuł strony" },
+      bloki: { type: "ARRAY", items: { type: "OBJECT", properties: {
+        rodzaj: { type: "STRING", description: "naglowek | tekst | lista | wzor | dzialanie | tabela | os_czasu | slowko | wskazowka | zadanie" },
+        tekst: { type: "STRING" },
+        elementy: { type: "ARRAY", items: { type: "STRING" } },
+        wydarzenia: { type: "ARRAY", items: { type: "OBJECT", properties: { rok: { type: "STRING" }, opis: { type: "STRING" } } } },
+        slowo: { type: "STRING" }, tlumaczenie: { type: "STRING" }, przyklad: { type: "STRING" } }, required: ["rodzaj"] } } },
+      required: ["bloki"] } },
+  { name: "zadaj_pytanie", description: "Pokazuje pytanie z 2-4 odpowiedziami jako przyciski. Uczeń może kliknąć albo powiedzieć odpowiedź. Przeczytaj pytanie na głos.",
+    parameters: { type: "OBJECT", properties: { pytanie: { type: "STRING" }, odpowiedzi: { type: "ARRAY", items: { type: "STRING" } } }, required: ["pytanie", "odpowiedzi"] } },
+  { name: "daj_gwiazdke", description: "Przyznaje uczniowi gwiazdkę za dobrą odpowiedź lub wysiłek.",
+    parameters: { type: "OBJECT", properties: { za_co: { type: "STRING" } } } },
+  { name: "zakoncz_lekcje", description: "Kończy lekcję. Wywołaj po pożegnaniu.",
+    parameters: { type: "OBJECT", properties: {
+      podsumowanie_dla_rodzica: { type: "STRING", description: "3-4 zdania po polsku: co przerobiono, co szło dobrze, co trzeba poćwiczyć" },
+      do_powtorki: { type: "ARRAY", items: { type: "STRING" } } }, required: ["podsumowanie_dla_rodzica"] } }
+] }];
+
+/* ---------- audio ---------- */
+const WORKLET = `class Mic extends AudioWorkletProcessor{constructor(){super();this.r=sampleRate/16000;this.p=0;this.s=0;this.c=0;this.o=new Int16Array(1600);this.n=0;this.e=0;}
+process(inp){const ch=inp[0]&&inp[0][0];if(!ch)return true;for(let i=0;i<ch.length;i++){const v=ch[i];this.s+=v;this.c++;this.e+=v*v;this.p++;
+if(this.p>=this.r){this.p-=this.r;let x=this.s/this.c;this.s=0;this.c=0;x=Math.max(-1,Math.min(1,x));this.o[this.n++]=x<0?x*32768:x*32767;
+if(this.n===this.o.length){this.port.postMessage({pcm:this.o.buffer.slice(0),lvl:Math.sqrt(this.e/(this.n*this.r))});this.n=0;this.e=0;}}}return true;}}
+registerProcessor("mic16k",Mic);`;
+const audio = { inCtx: null, outCtx: null, stream: null, node: null, next: 0, srcs: new Set(), speakingUntil: 0, micOn: true };
+function b64FromBuf(buf) { const u = new Uint8Array(buf); let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+async function startAudio() {
+  audio.outCtx = new (window.AudioContext || window.webkitAudioContext)();
+  await audio.outCtx.resume();
+  audio.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  audio.inCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
+  await audio.inCtx.audioWorklet.addModule(url);
+  const src = audio.inCtx.createMediaStreamSource(audio.stream);
+  audio.node = new AudioWorkletNode(audio.inCtx, "mic16k");
+  audio.node.port.onmessage = (e) => {
+    const gated = !audio.micOn || (cfg.phones !== "1" && (audio.srcs.size > 0 || performance.now() < audio.speakingUntil));
+    $("meter").style.width = gated ? "0" : Math.min(100, e.data.lvl * 400) + "%";
+    if (!gated && conn.ready) conn.send({ realtimeInput: { audio: { mimeType: "audio/pcm;rate=16000", data: b64FromBuf(e.data.pcm) } } });
+  };
+  src.connect(audio.node);
+}
+function stopAudio() {
+  try { audio.stream && audio.stream.getTracks().forEach((t) => t.stop()); } catch {}
+  try { audio.inCtx && audio.inCtx.close(); } catch {} try { audio.outCtx && audio.outCtx.close(); } catch {}
+  audio.inCtx = audio.outCtx = audio.stream = audio.node = null; audio.srcs.clear(); audio.next = 0;
+}
+function playPcm(b64, mime) {
+  if (!audio.outCtx) return;
+  const rate = Number((/rate=(\d+)/.exec(mime || "") || [])[1]) || 24000;
+  const bin = atob(b64); const n = bin.length >> 1; const f = new Float32Array(n);
+  for (let i = 0; i < n; i++) { let v = bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8); if (v >= 32768) v -= 65536; f[i] = v / 32768; }
+  const buf = audio.outCtx.createBuffer(1, n, rate); buf.copyToChannel(f, 0);
+  const s = audio.outCtx.createBufferSource(); s.buffer = buf; s.connect(audio.outCtx.destination);
+  const t = Math.max(audio.next, audio.outCtx.currentTime + 0.04); s.start(t); audio.next = t + buf.duration;
+  audio.srcs.add(s); $("face").classList.add("talk"); setStatus(teacherName() + " mówi", "");
+  s.onended = () => { audio.srcs.delete(s); if (!audio.srcs.size) { audio.speakingUntil = performance.now() + 500; $("face").classList.remove("talk");
+    if (lesson) setStatus(audio.micOn ? "Słucham cię" : "Mikrofon wyłączony", audio.micOn ? "Mów śmiało" : "Napisz albo włącz mikrofon"); } };
+}
+function stopPlayback() { audio.srcs.forEach((s) => { try { s.stop(); } catch {} }); audio.srcs.clear(); audio.next = 0; $("face").classList.remove("talk"); }
+setInterval(() => { if (audio.srcs.size && audio.outCtx) { const v = 1 + Math.random() * 0.12; $("face").style.setProperty("--lvl", v); } }, 90);
+
+/* ---------- Gemini Live connection ---------- */
+const conn = { ws: null, ready: false, handle: null, retries: 0,
+  send(o) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); } };
+function connect(resume) {
+  const model = cfg.model || pickModel(cfg.models || []);
+  if (!model) { setStatus("Brak modelu", "Sprawdź klucz w ustawieniach"); return; }
+  const ws = new WebSocket("wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=" + encodeURIComponent(cfg.key));
+  conn.ws = ws; conn.ready = false;
+  ws.onopen = () => {
+    const setup = { model: "models/" + model,
+      generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: cfg.voice } } } },
+      systemInstruction: { parts: [{ text: lesson.instruction }] }, tools: TOOLS,
+      inputAudioTranscription: {}, outputAudioTranscription: {},
+      contextWindowCompression: { slidingWindow: {} }, sessionResumption: resume && conn.handle ? { handle: conn.handle } : {} };
+    ws.send(JSON.stringify({ setup }));
+  };
+  ws.onmessage = async (ev) => {
+    let txt = ev.data; if (txt instanceof Blob) txt = await txt.text(); else if (txt instanceof ArrayBuffer) txt = new TextDecoder().decode(txt);
+    let m; try { m = JSON.parse(txt); } catch { return; }
+    handle(m, resume);
+  };
+  ws.onclose = (ev) => {
+    conn.ready = false; if (!lesson || lesson.ending) return;
+    if (conn.handle && conn.retries < 4 && ev.code !== 1008 && ev.code !== 1007) { conn.retries++; setStatus("Łączę ponownie...", ""); setTimeout(() => connect(true), 600); return; }
+    setStatus("Połączenie przerwane", ev.reason ? ev.reason.slice(0, 160) : "Kod " + ev.code);
+    logMsg("s", "Połączenie przerwane: " + (ev.reason || ev.code));
+  };
+  ws.onerror = () => {};
+}
+function handle(m, resumed) {
+  if (m.setupComplete) {
+    conn.ready = true; conn.retries = 0; setStatus("Słucham cię", "Mów śmiało");
+    if (!resumed) kickoff();
+  }
+  if (m.sessionResumptionUpdate && m.sessionResumptionUpdate.resumable && m.sessionResumptionUpdate.newHandle) conn.handle = m.sessionResumptionUpdate.newHandle;
+  if (m.goAway) { setTimeout(() => { try { conn.ws.close(4000, "goAway"); } catch {} }, 200); }
+  const sc = m.serverContent;
+  if (sc) {
+    if (sc.interrupted) stopPlayback();
+    if (sc.inputTranscription && sc.inputTranscription.text) logMsg("k", sc.inputTranscription.text);
+    if (sc.outputTranscription && sc.outputTranscription.text) logMsg("t", sc.outputTranscription.text);
+    const parts = (sc.modelTurn && sc.modelTurn.parts) || [];
+    for (const p of parts) if (p.inlineData && /audio/.test(p.inlineData.mimeType || "")) playPcm(p.inlineData.data, p.inlineData.mimeType);
+    if (sc.turnComplete) { const l = $("log").lastElementChild; if (l) delete l.dataset.live; if (lesson && lesson.pendingEnd) finishSoon(); }
+  }
+  if (m.toolCall && m.toolCall.functionCalls) {
+    const out = [];
+    for (const fc of m.toolCall.functionCalls) {
+      const a = fc.args || {}; let res = { result: "ok" };
+      try {
+        if (fc.name === "pokaz_tablice") renderBoard(a.tytul, a.bloki);
+        else if (fc.name === "zadaj_pytanie") renderChoices(a.pytanie, a.odpowiedzi);
+        else if (fc.name === "daj_gwiazdke") { lesson.stars++; $("lStars").textContent = lesson.stars + " ★"; logMsg("s", "Gwiazdka! " + (a.za_co || "")); }
+        else if (fc.name === "zakoncz_lekcje") { lesson.pendingEnd = a; res = { result: "ok, lekcja zakończona" }; }
+        else res = { error: "nieznana funkcja" };
+      } catch (e) { res = { error: String(e) }; }
+      out.push({ id: fc.id, name: fc.name, response: res });
+    }
+    conn.send({ toolResponse: { functionResponses: out } });
+    if (lesson && lesson.pendingEnd) setTimeout(finishSoon, 6000);
+  }
+}
+function finishSoon() {
+  if (!lesson || !lesson.pendingEnd) return;
+  const left = audio.outCtx ? Math.max(0, audio.next - audio.outCtx.currentTime) : 0;
+  if (left > 0.05) { setTimeout(finishSoon, left * 1000 + 300); return; }
+  finishLesson(lesson.pendingEnd);
+}
+function kickoff() {
+  for (const d of lesson.photos) conn.send({ realtimeInput: { video: { mimeType: "image/jpeg", data: d } } });
+  const extra = lesson.photos.length ? " Przesłałam " + lesson.photos.length + " zdjęcie/zdjęcia strony z podręcznika lub zeszytu, oprzyj na nich lekcję." : "";
+  conn.send({ realtimeInput: { text: "[APLIKACJA] Uczeń " + cfg.name + " jest gotowy. Temat: " + (lesson.topic || "ze zdjęć") + "." + extra + " Lekcja trwa około " + lesson.minutes + " minut. Zacznij lekcję." } });
+}
+function sendText(text, shown) {
+  if (!conn.ready) return;
+  stopPlayback(); logMsg("k", shown || text); const l = $("log").lastElementChild; if (l) delete l.dataset.live;
+  conn.send({ realtimeInput: { text } });
+}
+
+/* ---------- lesson lifecycle ---------- */
+let lesson = null, timer = null;
+$("startBtn").onclick = async () => {
+  const s = SUBJECTS[pick.subj];
+  lesson = { subj: pick.subj, topic: pick.topic, photos: pick.photos.slice(), minutes: Number($("len").value), stars: 0, transcript: [], start: Date.now(), warned: false,
+    instruction: buildInstruction(pick.subj, pick.topic, pick.photos.length > 0) };
+  $("lSubj").textContent = s.name; $("lSubj").style.setProperty("--c", s.c); $("lTopic").textContent = pick.topic || "według zdjęć";
+  $("lStars").textContent = "0 ★"; $("log").textContent = ""; renderBoard("", []); $("choices").hidden = true;
+  $("face").textContent = teacherName().split(" ")[1][0]; audio.micOn = true; updateMic();
+  show("vLesson"); setStatus("Włączam mikrofon...", "Zezwól na mikrofon, jeśli przeglądarka zapyta");
+  try { await startAudio(); }
+  catch (e) { audio.micOn = false; updateMic(); logMsg("s", "Mikrofon niedostępny, można pisać odpowiedzi."); }
+  setStatus("Łączę z nauczycielem...", ""); conn.handle = null; conn.retries = 0; connect(false);
+  timer = setInterval(tick, 1000);
+};
+function tick() {
+  if (!lesson) return; const sec = Math.floor((Date.now() - lesson.start) / 1000);
+  $("lClock").textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+  if (!lesson.warned && sec > (lesson.minutes - 4) * 60 && conn.ready) { lesson.warned = true;
+    conn.send({ realtimeInput: { text: "[APLIKACJA] Zostały około 4 minuty. Skończ bieżący krok, zrób mini-quiz z 3 pytań, pożegnaj się i wywołaj zakoncz_lekcje." } }); }
+}
+function updateMic() {
+  $("micBtn").classList.toggle("off", !audio.micOn);
+  $("micLabel").textContent = audio.micOn ? "Mikrofon włączony (kliknij, by wyłączyć)" : "Mikrofon wyłączony (kliknij, by włączyć)";
+}
+$("micBtn").onclick = async () => {
+  if (!audio.node) { try { await startAudio(); } catch { logMsg("s", "Brak dostępu do mikrofonu."); return; } }
+  audio.micOn = !audio.micOn; updateMic();
+};
+document.querySelectorAll(".quick button").forEach((b) => (b.onclick = () => sendText(b.dataset.q)));
+$("sayForm").onsubmit = (e) => { e.preventDefault(); const v = $("sayInput").value.trim(); if (v) { sendText(v); $("sayInput").value = ""; } };
+$("endBtn").onclick = () => {
+  if (!lesson) return;
+  if (conn.ready && !lesson.endAsked) { lesson.endAsked = true; $("endBtn").textContent = "Zakończ teraz";
+    conn.send({ realtimeInput: { text: "[APLIKACJA] Uczeń musi już kończyć. Pożegnaj się krótko i wywołaj zakoncz_lekcje z podsumowaniem." } }); return; }
+  finishLesson({ podsumowanie_dla_rodzica: "Lekcja przerwana przed podsumowaniem." });
+};
+function finishLesson(sum) {
+  if (!lesson || lesson.ending) return; lesson.ending = true;
+  clearInterval(timer); try { conn.ws && conn.ws.close(1000, "koniec"); } catch {} stopAudio();
+  const rec = { date: new Date().toISOString(), subj: lesson.subj, topic: lesson.topic || "ze zdjęć", stars: lesson.stars,
+    minutes: Math.round((Date.now() - lesson.start) / 60000), summary: sum.podsumowanie_dla_rodzica || "", review: sum.do_powtorki || [] };
+  const all = store.get("lessons", []); all.unshift(rec); store.set("lessons", all.slice(0, 200));
+  $("doneStars").textContent = lesson.stars + " ★"; $("doneText").textContent = "Brawo, " + cfg.name + "! Lekcja skończona.";
+  lesson = null; $("endBtn").textContent = "Zakończ lekcję"; show("vDone");
+}
+$("doneHome").onclick = goHome;
+
+/* ---------- report ---------- */
+function reportText() {
+  return store.get("lessons", []).map((r) => new Date(r.date).toLocaleDateString("pl-PL") + " | " + SUBJECTS[r.subj].name + " | " + r.topic + " | " + r.minutes + " min | " + r.stars + " gwiazdek\n" + r.summary + (r.review.length ? "\nDo powtórki: " + r.review.join(", ") : "")).join("\n\n");
+}
+function renderReport() {
+  const box = $("rep"); box.textContent = ""; const all = store.get("lessons", []);
+  if (!all.length) { box.append(el("p", "note", "Jeszcze nie było lekcji. Po każdej lekcji pojawi się tu podsumowanie od nauczyciela.")); return; }
+  all.forEach((r) => { const a = el("article"); a.style.setProperty("--c", SUBJECTS[r.subj].c);
+    a.append(el("h3", null, new Date(r.date).toLocaleString("pl-PL", { dateStyle: "medium", timeStyle: "short" }) + " · " + SUBJECTS[r.subj].name + ": " + r.topic),
+      el("p", "note", r.minutes + " min, " + r.stars + " ★"), el("p", null, r.summary));
+    if (r.review.length) a.append(el("p", null, "Do powtórki: " + r.review.join(", ")));
+    box.append(a); });
+}
+$("copyRep").onclick = async () => { try { await navigator.clipboard.writeText(reportText()); $("copyRep").textContent = "Skopiowano"; } catch { $("copyRep").textContent = "Nie udało się"; } };
+
+/* ---------- demo board (#demo) for preview without a key ---------- */
+function demo() {
+  show("vLesson"); $("lSubj").textContent = "Matematyka"; $("lSubj").style.setProperty("--c", SUBJECTS.matematyka.c);
+  $("lTopic").textContent = "Dodawanie pisemne"; $("lStars").textContent = "3 ★"; $("lClock").textContent = "7:42";
+  renderBoard("Dodawanie pisemne", [
+    { rodzaj: "tekst", tekst: "Piszemy liczby jedna pod drugą: jedności pod jednościami." },
+    { rodzaj: "dzialanie", elementy: ["  345", "+ 278", "-----", "  623"] },
+    { rodzaj: "wskazowka", tekst: "5 + 8 = 13, piszę 3, a 1 idzie dalej." },
+    { rodzaj: "zadanie", tekst: "Policz: 467 + 285" } ]);
+  renderChoices("Ile to jest 467 + 285?", ["742", "752", "652"]);
+  setStatus("Słucham cię", "Mów śmiało");
+  [["t", "Super! Zobacz na tablicę: piszemy liczby jedna pod drugą. Ile jest pięć plus osiem?"], ["k", "trzynaście"], ["t", "Dokładnie! Piszę trzy, a jedynkę przenoszę dalej. Teraz spróbuj sam."]]
+    .forEach(([c, t]) => { logMsg(c, t); delete $("log").lastElementChild.dataset.live; });
+}
+if (location.hash === "#demo") demo(); else if (!cfg.key || !cfg.name) openSettings(); else goHome();
+</script>
+</body>
+</html>
