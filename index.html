@@ -2110,7 +2110,7 @@ $("rHome").onclick = goHome;
    m = diag | drill | mock | lesson. Topic readiness = share correct of the last 8 answers in that topic. */
 let xrun = null, xtimer = null;
 const xKey = (s) => "exam." + s;
-function exState(s) { return Object.assign({ log: [], diag: null, mocks: [], run: null }, store.get(xKey(s), {})); }
+function exState(s) { return Object.assign({ log: [], diag: null, checks: [], mocks: [], run: null }, store.get(xKey(s), {})); }
 function exSave(s, st) { st.log = st.log.slice(-800); store.set(xKey(s), st); }
 function exLog(s, e) { const st = exState(s); st.log.push(Object.assign({ t: Date.now() }, e)); exSave(s, st); }
 const exUnit = (s, id) => CUR[s].units.find((u) => u.id === id);
@@ -2164,6 +2164,36 @@ function pickMock(s) {
   const stars = shuffle(units.flatMap((u) => exItems(u).filter((e) => e.x.star).map((e) => [u.id, e.i]))).slice(0, CUR[s].exam.mockStars || 2);
   return interleave(out).concat(stars);
 }
+function diagByUnit(s, st) { const by = {}; ((st.diag || {}).res || []).forEach((r) => { const b = by[r.u] = by[r.u] || { ok: 0, n: 0 }; b.n++; if (r.ok) b.ok++; }); return by; }
+function pickCheck(s) {
+  const st = exState(s); const base = diagByUnit(s, st); const tested = new Set(); const diagWrong = new Set();
+  ((st.diag || {}).res || []).concat(...st.checks.map((c) => c.res)).forEach((r) => { tested.add(r.u + "#" + r.i); });
+  ((st.diag || {}).res || []).forEach((r) => { if (!r.ok) diagWrong.add(r.u + "#" + r.i); });
+  const out = [];
+  for (const u of CUR[s].units) {
+    const b = base[u.id]; const acc = b && b.n ? b.ok / b.n : 0; const per = acc < 0.6 ? 6 : acc < 0.9 ? 4 : 2;
+    const all = exItems(u).filter((e) => !e.x.star); const k = (e) => u.id + "#" + e.i;
+    const again = shuffle(all.filter((e) => diagWrong.has(k(e)))).slice(0, acc < 0.6 ? 2 : acc < 0.9 ? 1 : 0);
+    const seenDrill = new Set(st.log.filter((e) => e.u === u.id).map((e) => e.i));
+    const fresh = shuffle(all.filter((e) => !tested.has(k(e)) && !again.includes(e))).sort((a, b) => seenDrill.has(a.i) - seenDrill.has(b.i) || ((b.x.level || 1) >= 2) - ((a.x.level || 1) >= 2));
+    const rest = shuffle(all.filter((e) => !again.includes(e) && !fresh.includes(e)));
+    again.concat(fresh, rest).slice(0, per).forEach((e) => out.push([u.id, e.i]));
+  }
+  return interleave(out);
+}
+function compareRows(s, before, after) {
+  const b = {}, a = {}; const add = (m, r) => { const z = m[r.u] = m[r.u] || { ok: 0, n: 0 }; z.n++; if (r.ok) z.ok++; };
+  (before || []).forEach((r) => add(b, r)); (after || []).forEach((r) => add(a, r));
+  return CUR[s].units.map((u) => ({ u, b: b[u.id] || { ok: 0, n: 0 }, a: a[u.id] || { ok: 0, n: 0 } }));
+}
+const pctTxt = (z) => z.n ? z.ok + "/" + z.n + " (" + Math.round(z.ok / z.n * 100) + "%)" : "brak";
+function trend(row) { if (!row.b.n || !row.a.n) return ""; const d = row.a.ok / row.a.n - row.b.ok / row.b.n; return d > 0.1 ? "📈 lepiej" : d < -0.1 ? "📉 gorzej" : "➖ bez zmian"; }
+function compareTable(s, before, after) {
+  const box = el("div", "xtopics");
+  compareRows(s, before, after).forEach((r) => { const row = el("div", "xtopic"); row.append(el("span", "emo", r.u.icon || "📘"));
+    const nm = el("div", "col"); nm.style.gap = "2px"; nm.append(el("b", null, r.u.title), el("span", "st", "diagnoza: " + pctTxt(r.b) + " · teraz: " + pctTxt(r.a) + (trend(r) ? " · " + trend(r) : ""))); row.append(nm); box.append(row); });
+  return box;
+}
 function interleave(list) { // spread topics: never the same topic twice in a row when avoidable
   const by = {}; list.forEach((p) => (by[p[0]] = by[p[0]] || []).push(p)); const keys = shuffle(Object.keys(by)); const out = [];
   while (out.length < list.length) for (const k of keys) if (by[k].length) out.push(by[k].shift());
@@ -2187,9 +2217,11 @@ function renderExamBanners() {
 }
 function exNextStep(s, st) {
   st = st || exState(s);
-  if (st.run && st.run.pos < st.run.items.length) return { short: "Dokończ " + (st.run.kind === "diag" ? "diagnozę" : "próbną kontrolną") + " (" + st.run.pos + "/" + st.run.items.length + ").", act: () => xResume(s) };
+  if (st.run && st.run.pos < st.run.items.length) return { short: "Dokończ " + ({ diag: "diagnozę", check: "sprawdzian postępu" }[st.run.kind] || "próbną kontrolną") + " (" + st.run.pos + "/" + st.run.items.length + ").", act: () => xResume(s) };
   if (!st.diag) return { short: "Krok 1: diagnoza, około 20 minut.", act: () => xStart(s, "diag") };
   const ts = topicStats(s, st).filter((t) => t.status !== "ready").sort((a, b) => ST_RANK[a.status] - ST_RANK[b.status] || a.acc - b.acc);
+  if (!st.checks.length && !ts.some((t) => t.status === "weak" || t.status === "new") && st.log.some((e) => e.m === "drill" || e.m === "lesson"))
+    return { short: "Ćwiczenia zrobione. Teraz sprawdzian postępu: ile się nauczyłeś?", act: () => xStart(s, "check") };
   if (ts.length) return { short: "Teraz ćwicz: " + ts[0].u.title + ".", act: () => xStart(s, "drill", ts[0].u.id), unit: ts[0].u };
   const m = st.mocks[0]; if (!m || runScore(s, m).grade < 6) return { short: "Wszystkie tematy gotowe. Napisz próbną kontrolną.", act: () => xStart(s, "mock") };
   return { short: "Próbna kontrolna na 6! Przeczytaj jeszcze ściągę.", act: () => openExam(s, "cheat") };
@@ -2213,7 +2245,7 @@ function openExam(s, page) {
   const d1 = el("div", "xstep " + (st.diag ? "ok" : "on")); d1.append(el("h3", null, "1. Diagnoza: ile już umiesz?"));
   if (st.diag) { const r = runScore(s, st.diag);
     d1.append(el("p", null, "Wynik: " + r.ok + "/" + r.n + " (" + r.pct + "%), " + Math.round(st.diag.secs / 60) + " min. Szacowana ocena przed nauką: " + r.grade + "."));
-    const again = el("button", "ghost", "Zrób diagnozę jeszcze raz"); again.type = "button"; again.onclick = () => xStart(s, "diag"); d1.append(again);
+    d1.append(el("p", "note", "To punkt startowy: z nim porównujemy sprawdzian postępu."));
   } else d1.append(el("p", null, "Około " + (ex.diagItems || 28) + " pytań ze wszystkich tematów działu, mniej więcej 20 minut. Bez podręcznika i bez podpowiedzi: chodzi o to, żeby zobaczyć, co już siedzi w głowie."));
   steps.append(d1);
   // 2. topics
@@ -2230,11 +2262,17 @@ function openExam(s, page) {
     list.append(row);
   });
   d2.append(list); steps.append(d2);
+  // 2b. progress check
+  const dc = el("div", "xstep" + (st.checks.length ? " ok" : "")); dc.append(el("h3", null, "3. Sprawdzian postępu"));
+  dc.append(el("p", null, "Po ćwiczeniach: więcej pytań z tematów, które w diagnozie poszły słabo, prawie same nowe. Pokazuje, co się poprawiło w porównaniu z diagnozą."));
+  if (st.checks[0] && st.diag) { const r = runScore(s, st.checks[0]); dc.append(el("p", null, "Ostatni: " + r.ok + "/" + r.n + " (" + r.pct + "%)."), compareTable(s, st.diag.res, st.checks[0].res)); }
+  if (st.diag) { const cb2 = el("button", st.checks.length ? "ghost" : "btn", st.checks.length ? "📊 Jeszcze jeden sprawdzian postępu" : "📊 Sprawdzian postępu"); cb2.type = "button"; cb2.onclick = () => xStart(s, "check"); dc.append(cb2); }
+  steps.append(dc);
   // 3. cheat sheet
-  const d3 = el("div", "xstep"); d3.append(el("h3", null, "3. Ściąga: najważniejsze z całego działu"), el("p", null, "Do przeczytania na głos wieczorem przed sprawdzianem i rano."));
+  const d3 = el("div", "xstep"); d3.append(el("h3", null, "4. Ściąga: najważniejsze z całego działu"), el("p", null, "Do przeczytania na głos wieczorem przed sprawdzianem i rano."));
   const cb = el("button", "ghost", "📄 Otwórz ściągę"); cb.type = "button"; cb.onclick = () => openExam(s, "cheat"); d3.append(cb); steps.append(d3);
   // 4. mock test
-  const d4 = el("div", "xstep" + (st.mocks.length && runScore(s, st.mocks[0]).grade === 6 ? " ok" : "")); d4.append(el("h3", null, "4. Próbna kontrolna"));
+  const d4 = el("div", "xstep" + (st.mocks.length && runScore(s, st.mocks[0]).grade === 6 ? " ok" : "")); d4.append(el("h3", null, "5. Próbna kontrolna"));
   d4.append(el("p", null, "Pytania jak na sprawdzianie, z nowych zadań, plus " + (ex.mockStars || 2) + " zadania z gwiazdką (na szóstkę). Cel: co najmniej " + ((ex.scale || [[96, 6]])[0][0]) + "% i zadania z gwiazdką dobrze."));
   st.mocks.slice(0, 3).forEach((mk) => { const r = runScore(s, mk); d4.append(el("p", "note", new Date(mk.date).toLocaleString("pl-PL", { dateStyle: "short", timeStyle: "short" }) + ": " + r.pct + "%, ocena " + r.grade + (r.stars ? ", z gwiazdką " + (r.starsOk ? "dobrze" : "nie wszystkie") : ""))); });
   const mb = el("button", "ghost", "📝 Napisz próbną kontrolną"); mb.type = "button"; mb.onclick = () => xStart(s, "mock"); d4.append(mb); steps.append(d4);
@@ -2255,7 +2293,7 @@ function renderCheat(s, body) {
 /* runs: diagnosis, drill (one topic), mock test */
 function xStart(s, kind, uid) {
   const st = exState(s);
-  const items = kind === "diag" ? pickDiag(s) : kind === "mock" ? pickMock(s) : pickDrill(s, exUnit(s, uid));
+  const items = kind === "diag" ? pickDiag(s) : kind === "mock" ? pickMock(s) : kind === "check" ? pickCheck(s) : pickDrill(s, exUnit(s, uid));
   const run = { kind, uid: uid || null, items, pos: 0, res: [], secs: 0 };
   if (kind !== "drill") { st.run = run; exSave(s, st); }
   xGo(s, run, kind === "drill");
@@ -2263,7 +2301,7 @@ function xStart(s, kind, uid) {
 function xResume(s) { const st = exState(s); if (st.run) xGo(s, st.run, false); }
 function xGo(s, run, cards) {
   xrun = Object.assign(run, { s, t0: Date.now(), base: run.secs || 0, re: new Set(), combo: 0, xp: 0 });
-  const names = { diag: "Diagnoza", drill: "Ćwiczenia", mock: "Próbna kontrolna" };
+  const names = { diag: "Diagnoza", drill: "Ćwiczenia", mock: "Próbna kontrolna", check: "Sprawdzian postępu" };
   $("xrTag").textContent = names[run.kind]; $("xrTitle").textContent = run.kind === "drill" ? exUnit(s, run.uid).title : CUR[s].exam.title;
   $("xrStop").onclick = () => { xPause(); openExam(s); };
   clearInterval(xtimer); xtimer = setInterval(xTick, 1000); xTick();
@@ -2273,8 +2311,9 @@ function xGo(s, run, cards) {
 }
 function xIntro() {
   const R = xrun; const box = $("xrBox"); box.textContent = ""; const c = el("div", "lcard");
-  c.append(el("div", "stepn", R.kind === "diag" ? "Diagnoza" : "Próbna kontrolna"));
-  (R.kind === "diag" ? ["Zaraz " + R.items.length + " pytań ze wszystkich tematów działu. To około 20 minut.", "Odpowiadaj sam, bez podręcznika i bez pomocy. Nie zgaduj na ślepo: jeśli nie wiesz, wybierz to, co wydaje ci się najbardziej sensowne.", "Po każdym pytaniu zobaczysz, czy dobrze. Na końcu powiem ci, czego jeszcze się nauczyć."]
+  c.append(el("div", "stepn", { diag: "Diagnoza", check: "Sprawdzian postępu" }[R.kind] || "Próbna kontrolna"));
+  (R.kind === "check" ? ["Sprawdzian postępu: " + R.items.length + " pytań, około 15-20 minut.", "Najwięcej pytań jest z tematów, które w diagnozie poszły słabo. Prawie wszystkie są nowe.", "Odpowiadaj sam, bez podręcznika i bez ściągi. Na końcu zobaczysz, co się poprawiło."]
+    : R.kind === "diag" ? ["Zaraz " + R.items.length + " pytań ze wszystkich tematów działu. To około 20 minut.", "Odpowiadaj sam, bez podręcznika i bez pomocy. Nie zgaduj na ślepo: jeśli nie wiesz, wybierz to, co wydaje ci się najbardziej sensowne.", "Po każdym pytaniu zobaczysz, czy dobrze. Na końcu powiem ci, czego jeszcze się nauczyć."]
     : ["Próbna kontrolna: " + R.items.length + " pytań, jak na prawdziwym sprawdzianie.", "Na końcu są zadania z gwiazdką ⭐: to te na szóstkę.", "Czytaj każde pytanie do końca. Powodzenia!"]).forEach((t) => c.append(el("p", null, t)));
   const b = el("button", "btn big keep", "Zaczynam!"); b.type = "button"; b.onclick = () => { Sfx.play("tap"); R.t0 = Date.now(); xNext(); }; c.append(b); box.append(c); b.focus();
 }
@@ -2320,20 +2359,25 @@ function xNext() {
 function xFinish() {
   const R = xrun; const s = R.s; clearInterval(xtimer); const st = exState(s); const sc = runScore(s, R);
   const rec = { date: new Date().toISOString(), secs: R.secs, res: R.res };
-  if (R.kind === "diag") st.diag = rec; else if (R.kind === "mock") st.mocks.unshift(rec);
+  if (R.kind === "diag") { if (!st.diag) st.diag = rec; } else if (R.kind === "check") st.checks.unshift(rec); else if (R.kind === "mock") st.mocks.unshift(rec);
   st.run = null; exSave(s, st); xrun = null;
   const box = $("xrBox"); box.textContent = ""; const c = el("div", "panel result"); box.append(c);
   c.append(el("div", "rbig", sc.ok + " / " + sc.n), el("div", "score", sc.pct + "%"));
-  if (R.kind !== "drill") { c.append(el("div", "note", "Szacowana ocena:"), el("div", "grade", String(sc.grade))); }
+  if (R.kind === "diag" || R.kind === "mock") { c.append(el("div", "note", "Szacowana ocena:"), el("div", "grade", String(sc.grade))); }
   const wrong = R.res.filter((r) => !r.ok); const byTopic = {}; wrong.forEach((r) => (byTopic[r.u] = (byTopic[r.u] || 0) + 1));
   let msg;
   if (R.kind === "diag") msg = wrong.length ? "Już sporo umiesz! Teraz po kolei nadrobimy tematy: " + Object.keys(byTopic).map((id) => exUnit(s, id).title).join(", ") + "." : "Wszystko dobrze! Zostaje próbna kontrolna i zadania z gwiazdką.";
+  else if (R.kind === "check") { const rows = compareRows(s, st.diag ? st.diag.res : [], R.res); const up = rows.filter((r) => trend(r).includes("lepiej")).map((r) => r.u.title);
+    const weak = rows.filter((r) => r.a.n && r.a.ok / r.a.n < 0.8).map((r) => r.u.title);
+    msg = (up.length ? "Poprawa w: " + up.join(", ") + ". " : "") + (weak.length ? "Jeszcze poćwicz: " + weak.join(", ") + "." : "Wszystkie tematy poszły dobrze! Teraz próbna kontrolna.");
+    if (st.diag) c.append(compareTable(s, st.diag.res, R.res)); }
   else if (R.kind === "mock") msg = sc.grade === 6 ? "Szóstka! Jesteś gotowy. Wieczorem przeczytaj jeszcze ściągę." : "Jeszcze trochę! Poćwicz tematy z błędami i spróbuj jeszcze raz.";
   else { const t = topicStats(s).find((z) => z.u.id === R.uid); msg = t.status === "ready" ? "Ten temat jest gotowy! ✅" : "Dobra robota. Ten temat warto jeszcze raz przećwiczyć później."; }
   c.append(el("p", null, msg));
   if (wrong.length) { const ul = el("ul"); ul.style.textAlign = "left"; wrong.forEach((r) => { const x = exUnit(s, r.u).exercises[r.i]; ul.append(el("li", null, exText(x) + " Poprawnie: " + exKey(x))); });
     const det = el("details"); det.append(el("summary", null, "Pytania z błędami (" + wrong.length + ")"), ul); c.append(det); }
   const row = el("div", "row"); row.style.justifyContent = "center";
+  if (R.kind === "check") { const ws = [...new Set(R.res.filter((r) => !r.ok).map((r) => r.u))]; ws.forEach((id) => { const u = exUnit(s, id); const b2 = el("button", "ghost", "Ćwicz: " + u.title); b2.type = "button"; b2.onclick = () => xStart(s, "drill", id); row.append(b2); }); }
   const back = el("button", "btn big", "Dalej: plan przygotowań"); back.type = "button"; back.onclick = () => openExam(s); row.append(back);
   if (R.kind === "drill") { const ag = el("button", "ghost", "Jeszcze raz ten temat"); ag.type = "button"; ag.onclick = () => xStart(s, "drill", R.uid); row.append(ag); }
   c.append(row); $("xrProg").style.width = "100%";
@@ -2354,6 +2398,8 @@ function examReportText(s) {
   L.push(META[s].name + ": przygotowanie do sprawdzianu „" + ex.title + "”, " + exWhen(s));
   if (st.diag) { const r = runScore(s, st.diag); L.push("Diagnoza " + new Date(st.diag.date).toLocaleString("pl-PL", { dateStyle: "short", timeStyle: "short" }) + ": " + r.ok + "/" + r.n + " (" + r.pct + "%), " + Math.round(st.diag.secs / 60) + " min, szacowana ocena " + r.grade + "."); }
   else L.push("Diagnoza: jeszcze nie zrobiona.");
+  st.checks.slice().reverse().forEach((c, k) => { const r = runScore(s, c); L.push("Sprawdzian postępu " + (k + 1) + ", " + new Date(c.date).toLocaleString("pl-PL", { dateStyle: "short", timeStyle: "short" }) + ": " + r.ok + "/" + r.n + " (" + r.pct + "%), " + Math.round(c.secs / 60) + " min.");
+    if (st.diag) compareRows(s, st.diag.res, c.res).forEach((row) => L.push("   " + row.u.title + ": diagnoza " + pctTxt(row.b) + ", teraz " + pctTxt(row.a) + (trend(row) ? ", " + trend(row) : ""))); });
   st.mocks.forEach((m) => { const r = runScore(s, m); L.push("Próbna kontrolna " + new Date(m.date).toLocaleString("pl-PL", { dateStyle: "short", timeStyle: "short" }) + ": " + r.ok + "/" + r.n + " (" + r.pct + "%), ocena " + r.grade + (r.stars ? ", zadania z gwiazdką: " + (r.starsOk ? "dobrze" : "błąd") : "") + "."); });
   const ts = topicStats(s, st); const ready = ts.filter((t) => t.status === "ready").length;
   L.push("", "Gotowość tematów: " + ready + " z " + ts.length + " gotowe.");
@@ -2363,6 +2409,7 @@ function examReportText(s) {
   const listWrong = (title, res) => { const w = res.filter((r) => !r.ok); if (!w.length) return; L.push("", title + " (" + w.length + "):");
     w.forEach((r) => { const u = exUnit(s, r.u); const x = u && u.exercises[r.i]; if (x) L.push("- [" + u.title + "] " + exText(x) + " | odpowiedź: " + r.g + " | poprawnie: " + exKey(x)); }); };
   if (st.diag) listWrong("Błędy w diagnozie", st.diag.res);
+  if (st.checks[0]) listWrong("Błędy w ostatnim sprawdzianie postępu", st.checks[0].res);
   if (st.mocks[0]) listWrong("Błędy w ostatniej próbnej kontrolnej", st.mocks[0].res);
   const recent = st.log.filter((e) => e.m === "drill" || e.m === "lesson"); if (recent.length) L.push("", "Ćwiczenia i lekcje: " + recent.length + " odpowiedzi, " + Math.round(recent.filter((e) => e.ok).length / recent.length * 100) + "% dobrych.");
   return L.join("\n");
